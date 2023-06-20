@@ -1,0 +1,104 @@
+import telebot
+
+from telebot import types
+from check import Bucket
+
+
+TOKEN = '6012437707:AAEXS_Z9a75Y3g7eoyItDaoUHy5j0PlBtb8'
+
+bot = telebot.TeleBot(TOKEN)
+
+@bot.message_handler(commands = ['start'])
+def first(message):
+    key = types.ReplyKeyboardMarkup(True, False)
+    key.row('Информация', 'Блюда')
+    key.row('Доставка на дом')
+    bot.send_message(message.chat.id, 'Выберите действие ⤵', reply_markup=key)
+
+
+@bot.message_handler(content_types =['text', 'contact'])
+def start(message):
+    if message.text == 'Информация':
+        keyboard = telebot.types.ReplyKeyboardMarkup(True, False)
+        keyboard.row("Главная")
+        bot.send_message(message.chat.id, 'Пицца - это то, что хотят все взрослые и дети.')
+        send = bot.send_message(message.chat.id, 'Выберите действие ⤵', reply_markup=keyboard)
+        bot.register_next_step_handler(send, start)
+    elif message.text == 'Блюда':
+        keyboard = telebot.types.ReplyKeyboardMarkup(True, False)
+        bot.send_message(message.chat.id, '1. Пепперони\n2. Мясная\n3. Куриная\n4. Грибная')
+        keyboard.row('Доставка на дом')
+        keyboard.row('Главная')
+        bot.send_message(message.chat.id, 'Выберите действие ⤵', reply_markup=keyboard)
+    elif message.text == 'Доставка на дом':
+        keyboard = types.ReplyKeyboardMarkup(True, False)
+        keyboard.row('Главная')
+        send = bot.send_message(message.chat.id, 'Как вас зовут ?', reply_markup=keyboard)
+        bucket = Bucket(message.from_user.id)
+        bot.register_next_step_handler(send, a1, bucket)
+    elif message.text == 'Главная':
+        first(message)
+
+def a1(message, bucket):
+    bucket.set_name(message.text)
+
+    if message.text == 'Главная':
+        first(message)
+    else:
+        keyboard = types.ReplyKeyboardMarkup(True, False)
+        keyboard.row('Главная')
+        send = bot.send_message(message.chat.id, 'Какую вы хотите пиццу ? Большую среднюю или маленькую ?'.format(name=message.text), reply_markup=keyboard)
+        bot.register_next_step_handler(send, a2, bucket)
+
+def a2(message, bucket):
+    bucket.set_zakaz(message.text)
+    if message.text == 'Главная':
+        first(message)
+    else:
+        keyboard = types.ReplyKeyboardMarkup(True, False)
+        keyboard.row('Главная')
+        send = bot.send_message(message.chat.id, 'Как будете платить ?', reply_markup=keyboard)
+        bot.register_next_step_handler(send, a3, bucket)
+
+def a3(message, bucket):
+    bucket.set_payment_method(message.text)
+    if message.text == 'Главная':
+        first(message)
+    elif message.text:
+        keyboard = types.ReplyKeyboardMarkup(True, False)
+        keyboard.row('Главная')
+        send = bot.send_message(message.chat.id, 'Какой у вас адрес доставки ?', reply_markup=keyboard)
+        bot.register_next_step_handler(send, a4, bucket)
+
+#Повтор заказа
+def a4(message, bucket):
+    if message.text == 'Главная':
+        first(message)
+    elif message.text:
+        bucket.set_address(message.text)
+        keyboard = types.ReplyKeyboardMarkup(True, False)
+        keyboard.row('Главная')
+        zakaz_str = ""
+        number = 1
+        for i in bucket.zakaz:
+            zakaz_str = zakaz_str + str(str(number) + ": " + i + ' ' + bucket.zakaz.get(i)[1] + " - " + str(bucket.zakaz.get(i)[0]) + "шт.\n")
+            number +=1
+
+        send = bot.send_message(message.chat.id, f'Вы хотите: \n{zakaz_str}оплата - {bucket.payment_method},\nдоставить по адресу {bucket.address} ?\n', reply_markup=keyboard)
+        bot.register_next_step_handler(send, a5, bucket)
+
+def a5(message, bucket):
+    if message.text == 'Главная':
+        first(message)
+    elif message.text:
+
+        send = bot.send_message(message.chat.id, "Спасибо за заказ")
+        bot.register_next_step_handler(send, first)
+
+
+def main():
+    bot.polling()
+
+
+if __name__ == "__main__":
+    main()
